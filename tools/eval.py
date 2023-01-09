@@ -56,7 +56,7 @@ def main():
     cudnn.enabled = config.CUDNN.ENABLED
 
     # build model
-    model = model = models.pidnet.get_seg_model(config, imgnet_pretrained=True)
+    model = models.pidnet.get_seg_model(config, imgnet_pretrained=False)
 
     if config.TEST.MODEL_FILE:
         model_state_file = config.TEST.MODEL_FILE
@@ -122,7 +122,7 @@ def main():
 
 
     end = timeit.default_timer()
-    logger.info('Mins: %d' % np.int((end-start)/60))
+    logger.info('Mins: %d' % int((end-start)/60))
     logger.info('Done')
 
 

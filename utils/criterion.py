@@ -70,7 +70,18 @@ class OhemCrossEntropy(nn.Module):
         tmp_target[tmp_target == self.ignore_label] = 0
         pred = pred.gather(1, tmp_target.unsqueeze(1))
         pred, ind = pred.contiguous().view(-1,)[mask].contiguous().sort()
-        min_value = pred[min(self.min_kept, pred.numel() - 1)]
+        #try:
+        # TODO there is a bug here that happens randomly during trining
+        if pred.numel() > 0:
+            print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
+            min_value = pred[min(self.min_kept, pred.numel() - 1)]
+        else:
+            print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
+            print(score)
+            print(target)
+            min_value = pred[self.min_kept]
+        #except:
+        #    print("WTF?")
         threshold = max(min_value, self.thresh)
 
         pixel_losses = pixel_losses[mask][ind]
