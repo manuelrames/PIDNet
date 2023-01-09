@@ -211,7 +211,7 @@ def main():
 
     writer_dict['writer'].close()
     end = timeit.default_timer()
-    logger.info('Hours: %d' % np._int((end-start)/3600))
+    logger.info('Hours: %d' % np.int_((end-start)/3600))
     logger.info('Done')
 
 if __name__ == '__main__':

@@ -73,7 +73,7 @@ class OhemCrossEntropy(nn.Module):
         #try:
         # TODO there is a bug here that happens randomly during trining
         if pred.numel() > 0:
-            print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
+            #print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
             min_value = pred[min(self.min_kept, pred.numel() - 1)]
         else:
             print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
