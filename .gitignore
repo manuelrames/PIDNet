@@ -1,0 +1,17 @@
+# Data
+data/camvid/*
+data/cityscapes/*
+output/*
+
+# Auto-generated files
+*.pyc
+
+# Virtual env
+envPIDNet/
+
+# Models
+*.pt
+*.pth.tar
+
+# PyCharm
+.idea
