@@ -77,8 +77,9 @@ class OhemCrossEntropy(nn.Module):
             min_value = pred[min(self.min_kept, pred.numel() - 1)]
         else:
             print("self.min_kept = %d and pred.numel() - 1 = %d" % (self.min_kept, pred.numel() - 1))
-            print(score)
-            print(target)
+            print('score_tensor: %s' % str(score))
+            print('target tensor: %s' % str(target))
+            print('mask tensor: %s' % str(mask))
             min_value = pred[self.min_kept]
         #except:
         #    print("WTF?")
