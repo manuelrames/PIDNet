@@ -92,6 +92,13 @@ def update_config(cfg, args):
     cfg.defrost()
     
     cfg.merge_from_file(args.cfg)
+    # Hyperdrive training parameters optimization
+    cfg.TRAIN.BATCH_SIZE_PER_GPU = args.batch_size if args.batch_size != None else cfg.TRAIN.BATCH_SIZE_PER_GPU
+    cfg.TRAIN.LR = args.learning_rate if args.learning_rate != None else cfg.TRAIN.LR
+    cfg.TRAIN.END_EPOCH = args.max_num_epochs if args.max_num_epochs != None else cfg.TRAIN.END_EPOCH
+    cfg.TRAIN.MOMENTUM = args.momentum if args.momentum != None else cfg.TRAIN.MOMENTUM
+    cfg.TRAIN.WD = args.weight_decay if args.weight_decay != None else cfg.TRAIN.WD
+
     cfg.merge_from_list(args.opts)
 
     cfg.freeze()

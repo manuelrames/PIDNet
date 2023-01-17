@@ -15,9 +15,9 @@ DATASET:
   TRAIN_SET: 'list/railways/train.lst'
   NUM_CLASSES: 3
 MODEL:
-  NAME: pidnet_small
+  NAME: pidnet_large
   NUM_OUTPUTS: 2
-  PRETRAINED: "pretrained_models/imagenet/PIDNet_S_ImageNet.pth.tar"
+  PRETRAINED: "pretrained_models/imagenet/PIDNet_L_ImageNet.pth.tar"
 LOSS:
   USE_OHEM: true
   OHEMTHRES: 0.9
