@@ -50,8 +50,14 @@ class FullModel(nn.Module):
     loss_b = self.bd_loss(outputs[-1], bd_gt)
 
     filler = torch.ones_like(labels) * config.TRAIN.IGNORE_LABEL
-    bd_label = torch.where(F.sigmoid(outputs[-1][:,0,:,:])>0.8, labels, filler)
-    loss_sb = self.sem_loss(outputs[-2], bd_label)
+    #bd_label = torch.where(F.sigmoid(outputs[-1][:,0,:,:])>0.8, labels, filler)
+    #loss_sb = self.sem_loss(outputs[-2], bd_label)
+    # changed the 2 previous lines as of -> https://github.com/XuJiacong/PIDNet/issues/14#issuecomment-1305105993
+    try:
+        bd_label = torch.where(torch.sigmoid(outputs[-1][:, 0, :, :]) > 0.7, labels, filler)
+        loss_sb = self.sem_loss([outputs[-2]], bd_label)
+    except:
+        loss_sb = self.sem_loss([outputs[-2]], labels)
     loss = loss_s + loss_b + loss_sb
 
     return torch.unsqueeze(loss,0), outputs[:-1], acc, [loss_s, loss_b]
