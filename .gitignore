@@ -5,6 +5,8 @@ output/*
 
 # Auto-generated files
 *.pyc
+__pycache__
+*.ipynb_checkpoints
 
 # Virtual env
 envPIDNet/
