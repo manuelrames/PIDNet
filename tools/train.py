@@ -34,7 +34,17 @@ def parse_args():
                         help='experiment configure file name',
                         default="configs/cityscapes/pidnet_small_cityscapes.yaml",
                         type=str)
-    parser.add_argument('--seed', type=int, default=304)    
+    parser.add_argument('--seed', type=int, default=304)
+    # Hyperparameters
+    parser.add_argument("--batch-size", type=int, default=None, dest='batch_size', help='training batch size')
+    parser.add_argument("--learning-rate", type=float, default=None, dest='learning_rate',
+                        help='training learning rate')
+    parser.add_argument("--max-num-epochs", type=int, default=None, dest='max_num_epochs',
+                        help='maximum number of training epochs')
+    parser.add_argument("--momentum", type=float, default=None, dest='momentum', help='training momentum')
+    parser.add_argument("--weight-decay", type=float, default=None, dest='weight_decay',
+                        help='learning rate weight decay')
+
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,

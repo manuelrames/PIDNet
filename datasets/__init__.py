@@ -9,3 +9,4 @@ from __future__ import print_function
 from .cityscapes import Cityscapes as cityscapes
 from .camvid import CamVid as camvid
 from .railways import Railways as railways
+from .railways_5classes import Railways_5classes as railways_5classes

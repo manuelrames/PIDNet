@@ -67,7 +67,7 @@ def main():
 
     # Load the data (passed as an input dataset)
     print("Loading Data...")
-    training_data = run.input_datasets['railways_semsegm_dataset']
+    training_data = run.input_datasets['railways_semsegm_5classes_dataset']
     print("Data Loaded!")
 
     # Download train/test data to workspace and show some examples
@@ -77,9 +77,6 @@ def main():
     print("Created data folder %s" % data_folder)
     training_data.download(target_path=data_folder)
     print("All Data Was Downloaded!")
-
-    print(os.listdir(data_folder + '/railways/leftImg8bit/train/'))
-    print(os.path.exists('data/railways/leftImg8bit/train/20221129_114946_733_39.39632%C2%B0%2C%20-3.14168%C2%B0%2C%20687.1m%2C%2012.0483.jpg'))
 
     if args.seed > 0:
         import random
@@ -255,20 +252,23 @@ def main():
     run.upload_folder(name='log', path='log')
 
     # Datasets used
-    training_ds = Dataset.get_by_name(ws, name='railways_semsegm_dataset')
+    training_ds = Dataset.get_by_name(ws, name='railways_semsegm_5classes_dataset')
 
     # Performance metrics on validation dataset
+    #perf_metrics = {'best_mIoU': best_mIoU, 'mean_IoU': mean_IoU, 'valid_loss': valid_loss, 'background_IoU': IoU_array[0],
+    #                'train_rail_IoU': IoU_array[1], 'ballast_IoU': IoU_array[2]}
     perf_metrics = {'best_mIoU': best_mIoU, 'mean_IoU': mean_IoU, 'valid_loss': valid_loss, 'background_IoU': IoU_array[0],
-                    'train_rail_IoU': IoU_array[1], 'ballast_IoU': IoU_array[2]}
+                    'left_rail_IoU': IoU_array[1], 'right_rail_IoU': IoU_array[2], 'other_rail_IoU': IoU_array[3], 'irrig_zone_IoU': IoU_array[4],
+                    'no_irrig_zone_IoU': IoU_array[5]}
 
     # Register the model
     print('Registering best model...')
-    model = run.register_model(model_name=f"railways_SemSegm_{config.MODEL.NAME}",
+    model = run.register_model(model_name=f"railways_SemSegm_5classes_{config.MODEL.NAME}",
                                model_path=os.path.join(f"outputs/{config.DATASET.DATASET}/{config.MODEL.NAME}_{config.DATASET.DATASET}", "best.pt"),
                                # model_framework = Model.Framework.PYTORCH,
                                model_framework='Custom',
                                # 'PyTorch' seems not to be supported as of 13/07/2022... -> https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.run.run?view=azure-ml-py#azureml-core-run-run-register-model
-                               datasets=[('railways_semsegm_dataset', training_ds)],
+                               datasets=[('railways_semsegm_5classes_dataset', training_ds)],
                                tags={'model_size': config.MODEL.NAME,
                                      'num_classes': config.DATASET.NUM_CLASSES,
                                      'loss_class_balance': str(config.LOSS.CLASS_BALANCE),
