@@ -16,7 +16,7 @@ WIDTH_IRRIG_ZONE = 2800  # irrigation zone width in [mm]
 def find_unit_vector(point1, point2):
     dist = [int(point1[0][0]) - int(point2[0][0]), int(point1[1][0]) - int(point2[1][0])]
     norm = math.sqrt(dist[0] ** 2 + dist[1] ** 2)
-    unitary_vector = [dist[0] / norm1, dist[1] / norm]
+    unitary_vector = [dist[0] / norm, dist[1] / norm]
 
     return unitary_vector
 
