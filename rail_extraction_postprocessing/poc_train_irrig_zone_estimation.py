@@ -7,6 +7,19 @@ sys.path.insert(1, '..')
 
 from tools.custom import parse_args, inference, generate_colored_preds
 
+# Fx = F/px where px = sensor_width [mm] / img_width [pix] (same applicable to Fy)
+Fx = 336  # [pixels]
+KNOWN_DISTANCE = 1668  # interail distance in Spain
+WIDTH_IRRIG_ZONE = 2800  # irrigation zone width in [mm]
+
+
+def find_unit_vector(point1, point2):
+    dist = [int(point1[0][0]) - int(point2[0][0]), int(point1[1][0]) - int(point2[1][0])]
+    norm = math.sqrt(dist[0] ** 2 + dist[1] ** 2)
+    unitary_vector = [dist[0] / norm1, dist[1] / norm]
+
+    return unitary_vector
+
 def calc_line_slope(image, fit_line):
     # compute t0 for y=0 and t1 for y=img.shape[0]: (y-y0)/vy
     t0 = (0 - fit_line[3]) / fit_line[1]
@@ -50,9 +63,9 @@ def extract_rails_line(prediction):
         mask_like = cv2.dilate(mask_like, kernel, iterations=1)
 
         # show image
-        """cv2.imshow('rail mask', mask_like)
+        cv2.imshow('rail mask', mask_like)
         cv2.waitKey(0)
-        cv2.destroyAllWindows()"""
+        cv2.destroyAllWindows()
 
         # filter the 2 rail contours
         # get contours
@@ -99,9 +112,9 @@ def extract_rails_line(prediction):
                 rails_lines.append(fit_line)
 
         # show results
-        """cv2.imshow("result", result)
+        cv2.imshow("result", result)
         cv2.waitKey(0)
-        cv2.destroyAllWindows()"""
+        cv2.destroyAllWindows()
 
     return rails_lines, result
 
@@ -128,7 +141,7 @@ def find_D(points, Fx, KNOWN_WIDTH):
     width_pixels = math.dist(np.array(points[0]), np.array(points[1]))
 
     D = (Fx * KNOWN_WIDTH) / width_pixels
-    print("Distance to the border of the solar panel is: %f" % D)
+    print("Distance to the point is: %f" % D)
 
     return D
 
@@ -139,7 +152,7 @@ def calc_irrig_zone_width_pix(Fx, W, D):
     return irrig_zone_width
 
 # taken from https://math.stackexchange.com/a/175906
-def extend_irrig_zone(bisector_end_point, inv_bisector_rail_point, distance_from_bisector):
+def extend_irrig_margins(bisector_end_point, inv_bisector_rail_point, distance_from_bisector):
     v = [inv_bisector_rail_point[0] - bisector_end_point[0], inv_bisector_rail_point[1] - bisector_end_point[1]]
     norm_v = math.sqrt(v[0] ** 2 + v[1] ** 2)
     unit_v = [v[0] / norm_v, v[1] / norm_v]
@@ -150,13 +163,7 @@ def extend_irrig_zone(bisector_end_point, inv_bisector_rail_point, distance_from
 
     return irrig_zone_left_point, irrig_zone_right_point
 
-
-if __name__ == '__main__':
-    args = parse_args()
-    images_list = glob.glob(args.r+'*'+args.t)
-
-    # perform inference
-    pred_list, sv_images = inference(args, images_list)
+def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
     # generate and show colored images
     colored_imgs = generate_colored_preds(images_list, pred_list, sv_images)
 
@@ -179,27 +186,24 @@ if __name__ == '__main__':
         draw_fitted_line(colored_imgs_opencv, rails_lines[1])
 
         # point where both lines intersect
-        x, y = line_intersection([p11, p12], [p21, p22])
-        cv2.circle(colored_imgs_opencv, (x,y), radius=5, color=(255, 0, 0), thickness=-1)
+        x_fuga, y_fuga = line_intersection([p11, p12], [p21, p22])
+        cv2.circle(colored_imgs_opencv, (x_fuga, y_fuga), radius=5, color=(255, 0, 0), thickness=-1)
 
         # calculate unit vector defined by (p11, p12) and (p21, p22)
-        dist1 = [int(p11[0][0]) - int(p12[0][0]), int(p11[1][0]) - int(p12[1][0])]
-        norm1 = math.sqrt(dist1[0] ** 2 + dist1[1] ** 2)
-        direction1 = [dist1[0] / norm1, dist1[1] / norm1]
-        dist2 = [int(p21[0][0]) - int(p22[0][0]), int(p21[1][0]) - int(p22[1][0])]
-        norm2 = math.sqrt(dist2[0] ** 2 + dist2[1] ** 2)
-        direction2 = [dist2[0] / norm2, dist2[1] / norm2]
-        # sum both unitary vector
+        direction1 = find_unit_vector(p11, p12)
+        direction2 = find_unit_vector(p21, p22)
+
+        # sum both unitary vectors and calculate its unitary vector
         bisector_vector = [sum(x) for x in zip(direction1, direction2)]
         norm_bisector = math.sqrt(bisector_vector[0] ** 2 + bisector_vector[1] ** 2)
         bisector_direction = [bisector_vector[0] / norm_bisector, bisector_vector[1] / norm_bisector]
-
-        m_bisector = bisector_direction[1]/bisector_direction[0]
-        b = y - m_bisector*x
-        x_end = int((colored_imgs_opencv.shape[0] - b)/m_bisector)
+        # find its slope, independent term b and intersection with the lowest end of the image
+        m_bisector = bisector_direction[1] / bisector_direction[0]
+        b = y_fuga - m_bisector * x_fuga
+        x_end = int((colored_imgs_opencv.shape[0] - b) / m_bisector)
 
         # draw bisector line
-        cv2.line(colored_imgs_opencv, (x, y), (x_end, colored_imgs_opencv.shape[0]), (0, 255, 0), 2)
+        cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), (x_end, colored_imgs_opencv.shape[0]), (0, 255, 0), 2)
 
         # show line intersection
         cv2.imshow('lines intersection', colored_imgs_opencv)
@@ -208,14 +212,16 @@ if __name__ == '__main__':
 
         # build irrigation zone
         # inv_m_bisector is ortogonal to the bisector
-        inv_m_bisector = -(1/m_bisector)
+        inv_m_bisector = -(1 / m_bisector)
         # inv_b is the independent term on the y = mx + inv_b line equation ortogonal to the bisector
-        inv_b = colored_imgs_opencv.shape[0] - inv_m_bisector*int(p12[0][0])
+        inv_b = colored_imgs_opencv.shape[0] - inv_m_bisector * int(p12[0][0])
 
         # intersection of the ortogonal bisector with rails
-        x_right, y_right = line_intersection([np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p21, p22])
+        x_right, y_right = line_intersection(
+            [np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p21, p22])
         cv2.circle(colored_imgs_opencv, (x_right, y_right), radius=5, color=(255, 0, 0), thickness=-1)
-        x_left, y_left = line_intersection([np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p11, p12])
+        x_left, y_left = line_intersection(
+            [np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p11, p12])
         cv2.circle(colored_imgs_opencv, (x_left, y_left), radius=5, color=(255, 0, 0), thickness=-1)
         # draw ortogonal bisector line
         cv2.line(colored_imgs_opencv, (x_left, y_left), (x_right, y_right), (0, 255, 255), 2)
@@ -225,35 +231,31 @@ if __name__ == '__main__':
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        # Fx = F/px where px = sensor_width [mm] / img_width [pix] (same applicable to Fy)
-        Fx = 336 # [pixels]
-        KNOWN_DISTANCE = 1668 # interail distance in Spain
-        WIDTH_IRRIG_ZONE = 2800 # irrigation zone width in [mm]
-
         # first find the distance from the central point of the bisector to the camera
         points = [[x_left, y_left], [x_right, y_right]]
-        dist_rails_pixels = math.sqrt((x_left-x_right)**2 + (y_left-y_right)**2)
+        dist_rails_pixels = math.sqrt((x_left - x_right) ** 2 + (y_left - y_right) ** 2)
         dist_to_camera = find_D(points, Fx, KNOWN_DISTANCE)
 
         # calculate the width in pixels of the irrigation zone on the zone of the ortogonal bisector (yellow line)
         irrig_zone_width_pix = calc_irrig_zone_width_pix(Fx, WIDTH_IRRIG_ZONE, dist_to_camera)
 
         # extend the ortogonal bisector to the limits of the irrigation zone
-        left_irrig_point, right_irrig_point = extend_irrig_zone([x_end, colored_imgs_opencv.shape[0]], [x_right, y_right], irrig_zone_width_pix/2)
+        left_irrig_point, right_irrig_point = extend_irrig_margins([x_end, colored_imgs_opencv.shape[0]],
+                                                                [x_right, y_right], irrig_zone_width_pix / 2)
 
         # find the exact point where the irrigation zone limits cut the limit of the image to form a polygon
         end_left_irrig_limit_point = line_intersection(
-            [np.array([[x], [y]]), np.array([[left_irrig_point[0]], [left_irrig_point[1]]])],
+            [np.array([[x_fuga], [y_fuga]]), np.array([[left_irrig_point[0]], [left_irrig_point[1]]])],
             [np.array([[0], [colored_imgs_opencv.shape[0]]]),
              np.array([[colored_imgs_opencv.shape[1]], [colored_imgs_opencv.shape[0]]])])
         end_right_irrig_limit_point = line_intersection(
-            [np.array([[x], [y]]), np.array([[right_irrig_point[0]], [right_irrig_point[1]]])],
+            [np.array([[x_fuga], [y_fuga]]), np.array([[right_irrig_point[0]], [right_irrig_point[1]]])],
             [np.array([[0], [colored_imgs_opencv.shape[0]]]),
              np.array([[colored_imgs_opencv.shape[1]], [colored_imgs_opencv.shape[0]]])])
 
         # draw irrigation zone limits
-        cv2.line(colored_imgs_opencv, (x, y), end_left_irrig_limit_point, (0, 0, 0), 2)
-        cv2.line(colored_imgs_opencv, (x, y), end_right_irrig_limit_point, (0, 0, 0), 2)
+        cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), end_left_irrig_limit_point, (0, 0, 0), 2)
+        cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), end_right_irrig_limit_point, (0, 0, 0), 2)
 
         # show line intersection
         cv2.imshow('lines intersection', colored_imgs_opencv)
@@ -261,10 +263,22 @@ if __name__ == '__main__':
         cv2.destroyAllWindows()
 
         # write results to disk
-        result_folder = 'rail_extraction_postprocessing/results'
-        if not os.path.exists(result_folder):
-            os.mkdir(result_folder)
-        cv2.imwrite(os.path.join(result_folder, os.path.basename(images_list[i])), colored_imgs_opencv)
+        if save_results:
+            result_folder = 'rail_extraction_postprocessing/results'
+            if not os.path.exists(result_folder):
+                os.mkdir(result_folder)
+            cv2.imwrite(os.path.join(result_folder, os.path.basename(images_list[i])), colored_imgs_opencv)
 
-        print("Hi!")
 
+
+if __name__ == '__main__':
+    args = parse_args()
+    images_list = glob.glob(args.r+'*'+args.t)
+
+    # perform inference
+    pred_list, sv_images = inference(args, images_list)
+
+    # estimate the irrigation zone
+    estimate_irrig_zone(pred_list, images_list=images_list, save_results=True)
+
+    print("Finito!")
