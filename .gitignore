@@ -2,6 +2,7 @@
 data/camvid/*
 data/cityscapes/*
 output/*
+outputs/*
 
 # Auto-generated files
 *.pyc
@@ -14,6 +15,10 @@ envPIDNet/
 # Models
 *.pt
 *.pth.tar
+*.trt
 
 # PyCharm
 .idea
+
+# torch2trt
+torch2trt/*
