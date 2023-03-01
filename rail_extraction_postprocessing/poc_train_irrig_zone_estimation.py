@@ -167,6 +167,7 @@ def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
     # generate and show colored images
     colored_imgs = generate_colored_preds(images_list, pred_list, sv_images)
 
+    irrig_zone_polygons = []
     # form the masks taking only predicted rail pixels
     for i, pred in enumerate(pred_list):
         colored_imgs_opencv = np.array(colored_imgs[i])[:, :, ::-1].copy()
@@ -200,10 +201,10 @@ def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
         # find its slope, independent term b and intersection with the lowest end of the image
         m_bisector = bisector_direction[1] / bisector_direction[0]
         b = y_fuga - m_bisector * x_fuga
-        x_end = int((colored_imgs_opencv.shape[0] - b) / m_bisector)
+        x_end = int((pred.shape[0] - b) / m_bisector)
 
         # draw bisector line
-        cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), (x_end, colored_imgs_opencv.shape[0]), (0, 255, 0), 2)
+        cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), (x_end, pred.shape[0]), (0, 255, 0), 2)
 
         # show line intersection
         cv2.imshow('lines intersection', colored_imgs_opencv)
@@ -214,14 +215,14 @@ def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
         # inv_m_bisector is ortogonal to the bisector
         inv_m_bisector = -(1 / m_bisector)
         # inv_b is the independent term on the y = mx + inv_b line equation ortogonal to the bisector
-        inv_b = colored_imgs_opencv.shape[0] - inv_m_bisector * int(p12[0][0])
+        inv_b = pred.shape[0] - inv_m_bisector * int(p12[0][0])
 
         # intersection of the ortogonal bisector with rails
         x_right, y_right = line_intersection(
-            [np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p21, p22])
+            [np.array([[x_end], [pred.shape[0]]]), np.array([[0], [inv_b]])], [p21, p22])
         cv2.circle(colored_imgs_opencv, (x_right, y_right), radius=5, color=(255, 0, 0), thickness=-1)
         x_left, y_left = line_intersection(
-            [np.array([[x_end], [colored_imgs_opencv.shape[0]]]), np.array([[0], [inv_b]])], [p11, p12])
+            [np.array([[x_end], [pred.shape[0]]]), np.array([[0], [inv_b]])], [p11, p12])
         cv2.circle(colored_imgs_opencv, (x_left, y_left), radius=5, color=(255, 0, 0), thickness=-1)
         # draw ortogonal bisector line
         cv2.line(colored_imgs_opencv, (x_left, y_left), (x_right, y_right), (0, 255, 255), 2)
@@ -240,18 +241,18 @@ def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
         irrig_zone_width_pix = calc_irrig_zone_width_pix(Fx, WIDTH_IRRIG_ZONE, dist_to_camera)
 
         # extend the ortogonal bisector to the limits of the irrigation zone
-        left_irrig_point, right_irrig_point = extend_irrig_margins([x_end, colored_imgs_opencv.shape[0]],
+        left_irrig_point, right_irrig_point = extend_irrig_margins([x_end, pred.shape[0]],
                                                                 [x_right, y_right], irrig_zone_width_pix / 2)
 
         # find the exact point where the irrigation zone limits cut the limit of the image to form a polygon
         end_left_irrig_limit_point = line_intersection(
             [np.array([[x_fuga], [y_fuga]]), np.array([[left_irrig_point[0]], [left_irrig_point[1]]])],
-            [np.array([[0], [colored_imgs_opencv.shape[0]]]),
-             np.array([[colored_imgs_opencv.shape[1]], [colored_imgs_opencv.shape[0]]])])
+            [np.array([[0], [pred.shape[0]]]),
+             np.array([[pred.shape[1]], [pred.shape[0]]])])
         end_right_irrig_limit_point = line_intersection(
             [np.array([[x_fuga], [y_fuga]]), np.array([[right_irrig_point[0]], [right_irrig_point[1]]])],
-            [np.array([[0], [colored_imgs_opencv.shape[0]]]),
-             np.array([[colored_imgs_opencv.shape[1]], [colored_imgs_opencv.shape[0]]])])
+            [np.array([[0], [pred.shape[0]]]),
+             np.array([[pred.shape[1]], [pred.shape[0]]])])
 
         # draw irrigation zone limits
         cv2.line(colored_imgs_opencv, (x_fuga, y_fuga), end_left_irrig_limit_point, (0, 0, 0), 2)
@@ -269,6 +270,13 @@ def estimate_irrig_zone(pred_list, images_list=None, save_results=False):
                 os.mkdir(result_folder)
             cv2.imwrite(os.path.join(result_folder, os.path.basename(images_list[i])), colored_imgs_opencv)
 
+        # form and return the polygon variable with the irrigation zone
+        vertices_polygon = np.array([[end_left_irrig_limit_point[0], end_left_irrig_limit_point[1]],
+                                     [x_fuga, y_fuga],
+                                     [end_right_irrig_limit_point[0], end_right_irrig_limit_point[1]]], dtype=np.int32)
+        irrig_zone_polygons.append(vertices_polygon)
+
+    return irrig_zone_polygons
 
 
 if __name__ == '__main__':
@@ -279,6 +287,6 @@ if __name__ == '__main__':
     pred_list, sv_images = inference(args, images_list)
 
     # estimate the irrigation zone
-    estimate_irrig_zone(pred_list, images_list=images_list, save_results=True)
+    irrig_zone_polygons = estimate_irrig_zone(pred_list, images_list=images_list, save_results=True)
 
     print("Finito!")
